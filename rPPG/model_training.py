@@ -6,7 +6,9 @@ from data_preprocessing import load_data
 
 data_dir = 'data/PURE/'
 window_size = 30  # Example window size
-X, y = load_data(data_dir, window_size)
+
+# Load data
+X, y, scaler = load_data(data_dir, window_size)
 
 # Split data into training and testing sets
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -27,5 +29,6 @@ best_model = grid_search.best_estimator_
 accuracy = best_model.score(X_test, y_test)
 print(f'Test Accuracy: {accuracy:.2f}')
 
-# Save the model
+# Save the model and scaler
 joblib.dump(best_model, 'rppg_model.pkl')
+joblib.dump(scaler, 'scaler.pkl')
