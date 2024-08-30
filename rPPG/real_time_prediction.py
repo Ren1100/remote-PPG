@@ -1,10 +1,11 @@
 import cv2
 import numpy as np
 import joblib
-from feature_extraction import extract_features_from_frames
+from feature_extraction import extract_features_from_frame
 
-# Load the trained model
+# Load the trained model and scaler
 model = joblib.load('rppg_model.pkl')
+scaler = joblib.load('scaler.pkl')
 
 # Initialize video capture
 cap = cv2.VideoCapture(0)
@@ -18,21 +19,23 @@ while True:
     if not ret:
         break
 
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     # Extract features
-    frame_features = extract_features_from_frames(frame_dir)  # Adjust frame_dir or method as needed
-    avg_features = np.mean(frame_features, axis=0)  # Example aggregation
-
-    features.append(avg_features)
+    frame_features = extract_features_from_frame(frame)
+    features.append(frame_features)
+    
     if len(features) >= window_size:
         window_features = np.array(features[-window_size:]).flatten().reshape(1, -1)
+        window_features = scaler.transform(window_features)
         prediction = model.predict(window_features)
+        
+        # Display the prediction
         cv2.putText(frame, f'Heart Rate: {prediction[0]:.2f} BPM', (50, 50),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
+    # Display the resulting frame
     cv2.imshow('Real-Time Heart Rate Detection', frame)
 
-    if cv2.waitKey(1) & 0xFF == ord('q'):
+    if cv2.waitKey(1) & 0xFF == ord('q'):  # Press 'q' to exit
         break
 
 cap.release()
