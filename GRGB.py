@@ -31,16 +31,24 @@ def compute_rppg_from_rois(frames):
         # b_avg = b_total / num_rois
         
         # Calculate GR, GB, and GRGB signals
-        gr = g / r if r != 0 else 0
-        gb = g / b if b != 0 else 0
-        grgb = (g / r) + (g / b) if r != 0 and b != 0 else 0
+        gr = g / r
+        gb = g / b 
+        grgb = (g / r) + (g / b) 
 
         r_signal.append(r)
         g_signal.append(g)
         b_signal.append(b)
 
+        # print(f"R(t): {r_signal}")
+        # print(f"G(t): {g_signal}")
+        # print(f"B(t): {b_signal}")
+
         gr_signal.append(gr)
         gb_signal.append(gb)
         grgb_signal.append(grgb)
+
+        # print(f"GR(t): {gr_signal}")
+        # print(f"GB(t): {gb_signal}")
+        # print(f"GRGB(t): {grgb_signal}")
 
     return np.array(gr_signal), np.array(gb_signal), np.array(grgb_signal), np.array(r_signal), np.array(g_signal), np.array(b_signal)

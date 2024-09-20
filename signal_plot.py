@@ -45,7 +45,6 @@ def plot_signals(r_signal, g_signal, b_signal, gr_signal, gb_signal, grgb_signal
     plt.figure(figsize=(15, 12))
 
     # Plot R(t)
-    print(r_signal)
     plt.subplot(6, 1, 1)
     plt.plot(time_axis, r_signal, label="R(t)", color='r')
     plt.xlabel("Time (s)")
@@ -54,7 +53,6 @@ def plot_signals(r_signal, g_signal, b_signal, gr_signal, gb_signal, grgb_signal
     plt.grid(True)
 
     # Plot G(t)
-    print(g_signal)
     plt.subplot(6, 1, 2)
     plt.plot(time_axis, g_signal, label="G(t)", color='g')
     plt.xlabel("Time (s)")
@@ -63,7 +61,6 @@ def plot_signals(r_signal, g_signal, b_signal, gr_signal, gb_signal, grgb_signal
     plt.grid(True)
 
     # Plot B(t)
-    print(b_signal)
     plt.subplot(6, 1, 3)
     plt.plot(time_axis, b_signal, label="B(t)", color='b')
     plt.xlabel("Time (s)")
@@ -72,7 +69,6 @@ def plot_signals(r_signal, g_signal, b_signal, gr_signal, gb_signal, grgb_signal
     plt.grid(True)
 
     # Plot GR signal
-    print(gr_signal)
     plt.subplot(6, 1, 4)
     plt.plot(time_axis, gr_signal, label="GR (G/R)", color='r')
     plt.xlabel("Time (s)")
@@ -81,7 +77,6 @@ def plot_signals(r_signal, g_signal, b_signal, gr_signal, gb_signal, grgb_signal
     plt.grid(True)
 
     # Plot GB signal
-    print(gb_signal)
     plt.subplot(6, 1, 5)
     plt.plot(time_axis, gb_signal, label="GB (G/B)", color='b')
     plt.xlabel("Time (s)")
@@ -90,7 +85,6 @@ def plot_signals(r_signal, g_signal, b_signal, gr_signal, gb_signal, grgb_signal
     plt.grid(True)
 
     # Plot GRGB signal
-    print(grgb_signal)
     plt.subplot(6, 1, 6)
     plt.plot(time_axis, grgb_signal, label="GRGB (G/R + G/B)", color='g')
     plt.xlabel("Time (s)")

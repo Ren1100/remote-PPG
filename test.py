@@ -10,8 +10,8 @@ import signal_processing
 
 def real_time_rppg():
     cap = cv2.VideoCapture(0)
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    buffer_size = int(fps * 3)  # 10-second window
+    fps = 25
+    buffer_size = int(fps * 10)  # 10-second window
 
     frames = []
     # rois = []
@@ -69,17 +69,17 @@ def real_time_rppg():
             grgb_signal_band = signal_processing.bandpass_filter(grgb_signal, fps)
 
             # # Normalize the signals using min-max scaling
-            # gr_signal_norm = signal_processing.normalize_signal(gr_signal_band)
-            # gb_signal_norm = signal_processing.normalize_signal(gb_signal_band)
-            # grgb_signal_norm = signal_processing.normalize_signal(grgb_signal_band)
+            gr_signal_norm = signal_processing.normalize_signal(gr_signal_band)
+            gb_signal_norm = signal_processing.normalize_signal(gb_signal_band)
+            grgb_signal_norm = signal_processing.normalize_signal(grgb_signal_band)
 
             # Plot the signals
-            signal_plot.plot_signals(r_signal, g_signal, b_signal, gr_signal_band, gb_signal_band, grgb_signal_band, fps)
+            signal_plot.plot_signals(r_signal, g_signal, b_signal, gr_signal_norm, gb_signal_norm, grgb_signal_norm, fps)
 
             # Plot FFT power spectrum of the signals
-            signal_plot.plot_fft(gr_signal_band, fps, "GR Signal (G/R)")
-            signal_plot.plot_fft(gb_signal_band, fps, "GB Signal (G/B)")
-            signal_plot.plot_fft(grgb_signal_band, fps, "GRGB Signal (G/R + G/B)")
+            # signal_plot.plot_fft(gr_signal_band, fps, "GR Signal (G/R)")
+            # signal_plot.plot_fft(gb_signal_band, fps, "GB Signal (G/B)")
+            # signal_plot.plot_fft(grgb_signal_band, fps, "GRGB Signal (G/R + G/B)")
 
             # Reset frame buffer after processing
             frames = []

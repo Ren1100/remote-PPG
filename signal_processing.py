@@ -2,7 +2,7 @@ import numpy as np
 from scipy.signal import butter, filtfilt
 
 
-def bandpass_filter(signal, fs, lowcut=0.65, highcut=4.0, order=5):
+def bandpass_filter(signal, fs, lowcut=0.65, highcut=4.0, order=6):
     nyquist = 0.5 * fs
     low = lowcut / nyquist
     high = highcut / nyquist
