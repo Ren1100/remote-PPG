@@ -10,8 +10,8 @@ def bandpass_filter(signal, fs, lowcut=0.65, highcut=4.0, order=5):
     nyquist = 0.5 * fs
     low = lowcut / nyquist
     high = highcut / nyquist
-    b, a = butter(order, [low, high], btype='band')
-    return filtfilt(b, a, signal)
+    c, a = butter(order, [low, high], btype='band')
+    return filtfilt(c, a, signal)
 
 # GRGB method for rPPG
 def grgb_rppg(frames, fps):
