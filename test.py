@@ -1,98 +1,191 @@
 import cv2
 import numpy as np
+import dlib
 import time
-from scipy.signal import butter, filtfilt
-from scipy.fftpack import fft
 import matplotlib.pyplot as plt
-import GRGB
-import signal_plot
-import signal_processing
+from scipy import signal
+from scipy.signal import welch
 
-def real_time_rppg():
-    cap = cv2.VideoCapture(0)
-    fps = 25
-    buffer_size = int(fps * 10)  # 10-second window
 
-    frames = []
-    # rois = []
+# Initialize the face detector
+detector = dlib.get_frontal_face_detector()
 
-    # Load Haar cascade for face detection
-    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+# Start capturing video from the webcam
+cap = cv2.VideoCapture(0)
+fps = 30
+n_segment = 2
+left_expand_ratio = 0.25
+top_expand_ratio = 0.25
 
-    start_time = time.time()
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
+f_cnt = 0
 
-        # Convert the frame to grayscale for face detection
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+face_left, face_top, face_right, face_bottom = 0,0,0,0
+mask = None
+n_skinpixels = 0
 
-        try:
-            faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
-        except Exception as e:
-            continue
+# Define time duration for recording (in seconds)
+record_duration = 5
+start_time = time.time()
 
-        for (x, y, w, h) in faces:
-            # (x, y, w, h) = face
-            # Define ROIs
-            forehead_roi = (x + w // 3, y+ h//16, w // 3, h // 6)  # Center forehead
-            # left_cheek_roi = (x + w // 8, y + h // 2, w // 4, h // 4)  # Left cheek
-            # right_cheek_roi = (x + 5 * w // 8, y + h // 2, w // 4, h // 4)  # Right cheek
+# Frame count
+f_cnt = 0
 
-            # rois = [forehead_roi]
-            forehead_frame = frame[forehead_roi[1]:forehead_roi[1] + forehead_roi[3], 
-                                   forehead_roi[0]:forehead_roi[0] + forehead_roi[2]]
+while (time.time() - start_time) < record_duration:
 
-            # rois = [forehead_roi, left_cheek_roi, right_cheek_roi]
+    ret, frame = cap.read()
 
-            # Add the current frame's ROIs to the frame buffer
-            frames.append(forehead_frame)
+    h, w, _ = frame.shape
 
-            # Draw rectangles around the detected face and ROIs
-            # cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-            cv2.rectangle(frame, (forehead_roi[0], forehead_roi[1]), (forehead_roi[0] + forehead_roi[2], forehead_roi[1] + forehead_roi[3]), (255, 0, 0), 2)
-            # cv2.rectangle(frame, (left_cheek_roi[0], left_cheek_roi[1]), (left_cheek_roi[0] + left_cheek_roi[2], left_cheek_roi[1] + left_cheek_roi[3]), (0, 255, 0), 2)
-            # cv2.rectangle(frame, (right_cheek_roi[0], right_cheek_roi[1]), (right_cheek_roi[0] + right_cheek_roi[2], right_cheek_roi[1] + right_cheek_roi[3]), (0, 0, 255), 2)
+    # frame_toshow = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    # plt.imshow(frame_toshow)
+    # print(f"Height: {h}, WidthL {w}")
 
-        # Limit the buffer size to the last 10 seconds
-        if len(frames) > buffer_size:
-            frames.pop(0)
+    gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-        # Once we have enough frames, process the rPPG signal
-        if len(frames) == buffer_size:
-            r_signal, g_signal, b_signal, gr_signal, gb_signal, grgb_signal = GRGB.compute_rppg_from_rois(frames)
+    #apply face detection
+    if f_cnt == 0:
+        rect = detector(gray_frame, 0)
+        rect = rect[0]
+        left, right, top, bottom = rect.left(), rect.right(), rect.top(), rect.bottom()
 
-            # Apply bandpass filter to the signals
-            gr_signal_band = signal_processing.bandpass_filter(gr_signal, fps)
-            gb_signal_band = signal_processing.bandpass_filter(gb_signal, fps)
-            grgb_signal_band = signal_processing.bandpass_filter(grgb_signal, fps)
+        width = abs (right - left)
+        height = abs (bottom - top)
+        face_left = int(left - (left_expand_ratio/2 * width))
+        face_top = int (top - (top_expand_ratio/2 * height ))
+        face_right = right
+        face_bottom = bottom
+    
+    cv2.rectangle(frame, (face_left, face_top), (face_right, face_bottom), (0, 255, 0), 2)
+    cv2.imshow('Webcam Feed', frame)
 
-            # # Normalize the signals using min-max scaling
-            gr_signal_norm = signal_processing.normalize_signal(gr_signal_band)
-            gb_signal_norm = signal_processing.normalize_signal(gb_signal_band)
-            grgb_signal_norm = signal_processing.normalize_signal(grgb_signal_band)
 
-            # Plot the signals
-            signal_plot.plot_signals(r_signal, g_signal, b_signal, gr_signal_norm, gb_signal_norm, grgb_signal_norm, fps)
+    face = frame[face_top:face_bottom, face_left:face_right]
 
-            # Plot FFT power spectrum of the signals
-            # signal_plot.plot_fft(gr_signal_band, fps, "GR Signal (G/R)")
-            # signal_plot.plot_fft(gb_signal_band, fps, "GB Signal (G/B)")
-            # signal_plot.plot_fft(grgb_signal_band, fps, "GRGB Signal (G/R + G/B)")
+    # frame_toshow = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
+    # plt.imshow(frame_toshow)
 
-            # Reset frame buffer after processing
-            frames = []
+    # Convert the face region to YCrCb color space
+    face_YCrCb = cv2.cvtColor(face, cv2.COLOR_BGR2YCrCb)
 
-        # Display the video feed
-        cv2.imshow("Webcam", frame)
+    # Define the skin color range in YCrCb
+    lower_skin = np.array([0, 133, 77], dtype=np.uint8)
+    upper_skin = np.array([255, 173, 127], dtype=np.uint8)
 
-        # Break on 'q' key press
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+    # Create a binary mask where skin color is white and the rest is black
+    mask = cv2.inRange(face_YCrCb, lower_skin, upper_skin)
+    n_skinpixels = np.sum(mask)
 
-    cap.release()
-    cv2.destroyAllWindows()
+    # Apply the mask to the face region
+    masked_face = cv2.bitwise_and(face, face, mask=mask)
 
-if __name__ == "__main__":
-    real_time_rppg()
+    # frame_toshow= cv2.cvtColor(masked_face, cv2.COLOR_BGR2RGB)
+    # plt.imshow(frame_toshow)
+
+    #Get the mean RGB value in the skin
+    mean_r = np.sum(masked_face[:,:,2]) / n_skinpixels
+    mean_g = np.sum(masked_face[:,:,1]) / n_skinpixels
+    mean_b = np.sum(masked_face[:,:,0]) / n_skinpixels
+
+    if f_cnt ==0:
+        mean_rgb = np.array([mean_r, mean_g, mean_b])
+    else:
+        mean_rgb = np.vstack((mean_rgb,np.array([mean_r, mean_g, mean_b])))
+
+    # cv2.imshow('Webcam Feed', frame)
+
+    f_cnt += 1
+    
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+# Release the video capture object and close windows
+cap.release()
+cv2.destroyAllWindows()
+
+# # Print the collected RGB array
+# plt.figure(figsize=(20,5))
+# plt.plot(mean_rgb[:,0], label = 'R', color='red')
+# plt.plot(mean_rgb[:,1], label = 'G', color='green')
+# plt.plot(mean_rgb[:,2], label = 'B', color='blue')
+# plt.legend()
+# plt.title("Mean RGB")
+# plt.show()
+
+l = int(fps * 1.6)
+rPPG_signals = np.zeros(mean_rgb.shape[0])
+
+for t in range (0, mean_rgb.shape[0] - l):
+
+    ## CREATE C DATA
+    C = mean_rgb[t:t+l-1,:].T
+
+    # print(f"C shape: {C.shape}")
+    # print (f"C: \n{C}")
+
+    ## CREATE TEMPORAL NORMALIZATION
+
+    mean_color = np.mean(C, axis=1)
+
+    # print(f"Shape of mean color: {mean_color.shape}")
+    # print(f"Mean Color: {mean_color}")
+
+    diag_mean_color = np.diag(mean_color)
+
+    # print(f"Shape of diag mean color: {diag_mean_color.shape}")
+    # print(f"Diag Mean Color: \n{diag_mean_color}")
+
+    diag_mean_color_inv = np.linalg.inv(diag_mean_color)
+    # print(f"Shape of diag mean color inv: {diag_mean_color_inv.shape}")
+    # print(f"Diag Mean Color Inv: \n{diag_mean_color_inv}")
+
+    Cn = np.matmul(diag_mean_color_inv, C)
+    # print(f"Cn Shape: {Cn.shape}")
+
+
+
+    ##FROM 3D TO 2D
+
+    projection_matrix = np.array([[0, 1, -1], [-2, 1, 1]]) 
+
+    S= np.matmul(projection_matrix, Cn)
+    # print(f"Shape of S: {S.shape}")
+
+    ##FROM 2D TO 1D
+
+    std = np.array([1, np.std(S[0,:]) / np.std(S[1,:])])
+    # print(f"Shape of std: {std.shape}")
+    # print(f"std: {std}")
+
+    P = np.matmul(std, S)
+    # print(f"Shape of P: {P.shape}")
+
+    # plt.figure(figsize=(20,5))
+    # plt.plot(P)
+
+    ## OVERLAPPING
+
+    epsilon = 1e-8  # Small value to avoid division by zero
+    rPPG_signals[t:t+l-1] = rPPG_signals[t:t+l-1] + (P - np.mean(P)) / (np.std(P) + epsilon)
+
+
+
+    # break
+
+lowcut = 0.65
+highcut = 4
+
+b, a = signal.butter(6, [lowcut, highcut], btype='bandpass', fs=fps)
+rPPG_filtered = signal.filtfilt(b, a, rPPG_signals)
+
+#standardization
+rPPG_filtered = (rPPG_filtered-np.mean(rPPG_filtered))/np.std(rPPG_filtered)
+
+seg_len = (2*rPPG_filtered.shape[0]) // n_segment + 1
+
+freq_rPPG, psd_rPPG = welch(rPPG_filtered, fs=fps, nperseg=seg_len, window='flattop')
+
+max_freq_rPPG =  freq_rPPG[np.argmax(psd_rPPG)]
+
+rPPG_bpm = max_freq_rPPG * 60
+print(f"BPM: {rPPG_bpm}")
+
