@@ -4,19 +4,23 @@ import dlib
 import time
 from scipy import signal
 from scipy.signal import welch
+from signal_processing import *
+from BPM_estimation import *
+from POS import *
+from skin_segment import *
 
 # Initialize the face detector
 detector = dlib.get_frontal_face_detector()
 
 # Start capturing video from the webcam
 cap = cv2.VideoCapture(0)
+# cv2.imshow('Webcam Feed', frame)
 fps = 30
 n_segment = 2
 left_expand_ratio = 0.25
 top_expand_ratio = 0.25
 
 f_cnt = 0
-
 face_left, face_top, face_right, face_bottom = 0, 0, 0, 0
 mask = None
 n_skinpixels = 0
@@ -42,7 +46,6 @@ while True:
     h, w, _ = frame.shape
     gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-    # Apply face detection
     if f_cnt == 0:
         rects = detector(gray_frame, 0)
         if len(rects) > 0:
@@ -64,23 +67,29 @@ while True:
 
     face = frame[face_top:face_bottom, face_left:face_right]
 
-    # Convert the face region to YCrCb color space
-    face_YCrCb = cv2.cvtColor(face, cv2.COLOR_BGR2YCrCb)
+    # # Convert the face region to YCrCb color space
+    # face_YCrCb = cv2.cvtColor(face, cv2.COLOR_BGR2YCrCb)
 
-    # Define the skin color range in YCrCb
-    lower_skin = np.array([0, 133, 77], dtype=np.uint8)
-    upper_skin = np.array([255, 173, 127], dtype=np.uint8)
+    # # Define the skin color range in YCrCb
+    # lower_skin = np.array([0, 133, 77], dtype=np.uint8)
+    # upper_skin = np.array([255, 173, 127], dtype=np.uint8)
 
-    # Create a binary mask where skin color is white and the rest is black
-    mask = cv2.inRange(face_YCrCb, lower_skin, upper_skin)
-    n_skinpixels = np.sum(mask)
+    # # Create a binary mask where skin color is white and the rest is black
+    # mask = cv2.inRange(face_YCrCb, lower_skin, upper_skin)
+    # n_skinpixels = np.sum(mask)
 
-    if n_skinpixels == 0:
+    # if n_skinpixels == 0:
+    #     print("No skin pixels detected.")
+    #     continue  # Skip this iteration if no skin pixels are detected
+
+    # # Apply the mask to the face region
+    # masked_face = cv2.bitwise_and(face, face, mask=mask)
+
+    masked_face, n_skinpixels = YCrCB_Segment(face)
+
+    if n_skinpixels == 0 or masked_face is None:
         print("No skin pixels detected.")
         continue  # Skip this iteration if no skin pixels are detected
-
-    # Apply the mask to the face region
-    masked_face = cv2.bitwise_and(face, face, mask=mask)
 
     # Get the mean RGB value in the skin
     mean_r = np.sum(masked_face[:, :, 2]) / n_skinpixels
@@ -99,38 +108,17 @@ while True:
             # Process the mean RGB signal for rPPG
             l = int(fps * 1.6)
             if mean_rgb.shape[0] > l:
-                rPPG_signals = np.zeros(mean_rgb.shape[0])
-
-                for t in range(0, mean_rgb.shape[0] - l):
-                    C = mean_rgb[t:t + l - 1, :].T
-                    mean_color = np.mean(C, axis=1)
-                    diag_mean_color_inv = np.linalg.inv(np.diag(mean_color))
-                    Cn = np.matmul(diag_mean_color_inv, C)
-
-                    projection_matrix = np.array([[0, 1, -1], [-2, 1, 1]])
-                    S = np.matmul(projection_matrix, Cn)
-
-                    std = np.array([1, np.std(S[0, :]) / np.std(S[1, :])])
-                    P = np.matmul(std, S)
-
-                    epsilon = 1e-8  # Small value to avoid division by zero
-                    rPPG_signals[t:t + l - 1] = rPPG_signals[t:t + l - 1] + (P - np.mean(P)) / (np.std(P) + epsilon)
+                # Apply POS algorithm
+                rPPG_signals = POS(mean_rgb, l)
 
                 # Apply bandpass filter
-                lowcut = 0.65
-                highcut = 4
-                b, a = signal.butter(6, [lowcut, highcut], btype='bandpass', fs=fps)
-                rPPG_filtered = signal.filtfilt(b, a, rPPG_signals)
+                rPPG_filtered = bandpass_filter(rPPG_signals, fps)
 
                 # Standardization
-                rPPG_filtered = (rPPG_filtered - np.mean(rPPG_filtered)) / np.std(rPPG_filtered)
+                rPPG_filtered = standardization_signal(rPPG_filtered)
 
-                # Welch's method to estimate frequency
-                seg_len = (2 * rPPG_filtered.shape[0]) // n_segment + 1
-                freq_rPPG, psd_rPPG = welch(rPPG_filtered, fs=fps, nperseg=seg_len, window='flattop')
-
-                max_freq_rPPG = freq_rPPG[np.argmax(psd_rPPG)]
-                rPPG_bpm = max_freq_rPPG * 60
+                # estimate BPM using frequncy analysis 
+                rPPG_bpm = BPM_estimation(rPPG_filtered, n_segment, fps)
                 print(f"BPM: {rPPG_bpm:.2f}")
                 bpm_display = f"BPM: {rPPG_bpm:.2f}"  # Update the BPM display text
 
