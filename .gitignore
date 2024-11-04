@@ -1,2 +1,4 @@
-rPPG_Testing_PURE.xlsx
+*.xlsx
 PURE/
+evaluation.py
+
