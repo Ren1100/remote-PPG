@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Real-Time BPM Estimation</title>
+<style>
+    body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        background-color: #f0f0f0;
+        font-family: Arial, sans-serif;
+    }
+    h1 {
+        color: #333;
+    }
+    #video-stream {
+        border: 2px solid #007bff;
+        border-radius: 10px;
+    }
+    #bpm-display {
+        font-size: 2rem;
+        color: #007bff;
+        margin-top: 20px;
+    }
+</style>
+</head>
+<body>
+
+<h1>Real-Time BPM Estimation</h1>
+<img id="video-stream" src="http://127.0.0.1:5000/video_feed" alt="Video Stream">
+<div id="bpm-display">BPM: N/A</div>
+
+<script>
+    async function fetchBPM() {
+        try {
+            const response = await fetch('http://127.0.0.1:5000/bpm');
+            const data = await response.json();
+            document.getElementById('bpm-display').textContent = `BPM: ${data.bpm}`;
+        } catch (error) {
+            console.error('Error fetching BPM:', error);
+        }
+    }
+
+    setInterval(fetchBPM, 2000);
+</script>
+
+</body>
+</html>
