@@ -7,7 +7,6 @@ from scipy.signal import welch
 from signal_processing import *
 from BPM_estimation import *
 from POS import *
-# from skin_segment import *
 import mediapipe as mp
 
 # Initialize the face detector
@@ -90,27 +89,10 @@ while True:
         # Apply the mask to extract the full face region
         masked_face = cv2.bitwise_and(resized_frame, resized_frame, mask=mask)
 
-        cv2.imshow('Masked Face', masked_face)
-
-        x, y, w, h = cv2.boundingRect(face_boundary_points)
-
-        cropped_face = masked_face[y:y+h, x:x+w]
-
-         # Convert the resized masked face region to YCrCb color space
-        ycrcb_face = cv2.cvtColor(cropped_face, cv2.COLOR_BGR2YCrCb)
-
-        # Define skin color range in YCrCb
-        lower_skin = np.array([0, 133, 77], dtype=np.uint8)
-        upper_skin = np.array([255, 173, 127], dtype=np.uint8)
-
-        # Create a skin mask based on the YCrCb color range
-        skin_mask = cv2.inRange(ycrcb_face, lower_skin, upper_skin)
-
-        # Apply the skin mask to extract only the skin regions
-        skin_segmented_face = cv2.bitwise_and(cropped_face, cropped_face, mask=skin_mask)
+        # cv2.imshow('Masked Face', masked_face)
 
         # Get the number of face pixels in the skin-segmented region
-        n_facepixels = np.sum(skin_mask // 255)
+        n_facepixels = np.sum(mask // 255)
 
         # # Display the segmented face result
         # frame_toshow = cv2.cvtColor(skin_segmented_face, cv2.COLOR_BGR2RGB)
@@ -119,9 +101,9 @@ while True:
 
         # If face pixels are found, calculate the mean RGB values in the skin-segmented face region
         if n_facepixels > 0:
-            mean_r = np.sum(skin_segmented_face[:, :, 2]) / n_facepixels
-            mean_g = np.sum(skin_segmented_face[:, :, 1]) / n_facepixels
-            mean_b = np.sum(skin_segmented_face[:, :, 0]) / n_facepixels
+            mean_r = np.sum(masked_face[:, :, 2]) / n_facepixels
+            mean_g = np.sum(masked_face[:, :, 1]) / n_facepixels
+            mean_b = np.sum(masked_face[:, :, 0]) / n_facepixels
 
             if f_cnt == 0:
                 mean_rgb = np.array([mean_r, mean_g, mean_b])
