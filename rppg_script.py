@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import dlib
 import time
+import matplotlib.pyplot as plt
 from scipy import signal
 from scipy.signal import welch
 from signal_processing import *
@@ -35,6 +36,18 @@ bpm_estimation_start = start_time + delay  # Set the initial BPM estimation time
 
 # Frame count
 mean_rgb = np.empty((0, 3))  # Initialize mean_rgb array
+
+# Initialize a Matplotlib figure for rPPG signal
+plt.ion()
+fig, ax = plt.subplots()
+ax.set_title("Real-Time rPPG Signal")
+ax.set_xlabel("Frames")
+ax.set_ylabel("Amplitude")
+rPPG_plot, = ax.plot([], [], color='b', label='rPPG Signal')
+ax.legend()
+rPPG_data = []  # Buffer to store the rPPG signal for plotting
+# Update the signal window size (number of samples to display)
+window_size = int(fps * 10)  # Show the last 10 seconds of data
 
 while True:
     ret, frame = cap.read()
@@ -89,15 +102,12 @@ while True:
         # Apply the mask to extract the full face region
         masked_face = cv2.bitwise_and(resized_frame, resized_frame, mask=mask)
 
-        # cv2.imshow('Masked Face', masked_face)
+        cv2.imshow('Masked Face', masked_face)
+        cv2.moveWindow('Masked Face', 1200, 500)  # Position the masked face window at (500, 100)
+
 
         # Get the number of face pixels in the skin-segmented region
         n_facepixels = np.sum(mask // 255)
-
-        # # Display the segmented face result
-        # frame_toshow = cv2.cvtColor(skin_segmented_face, cv2.COLOR_BGR2RGB)
-        # plt.imshow(frame_toshow)
-        # plt.show()
 
         # If face pixels are found, calculate the mean RGB values in the skin-segmented face region
         if n_facepixels > 0:
@@ -115,30 +125,38 @@ while True:
     # break
     f_cnt += 1
 
+    # Process the mean RGB signal for rPPG
+    l = int(fps * 1.6)
+    if mean_rgb.shape[0] > l:
+        # Apply POS algorithm
+        rPPG_signals = POS(mean_rgb, l)
+
+        # Apply bandpass filter
+        rPPG_filtered = bandpass_filter(rPPG_signals, fps)
+
+        # Standardization
+        rPPG_filtered = standardization_signal(rPPG_filtered)
+        rPPG_data.extend(rPPG_filtered.tolist())
+        rPPG_data = rPPG_data[-window_size:]  # Keep only the last 'window_size' samples
+        rPPG_plot.set_data(range(len(rPPG_data)), rPPG_data)
+        ax.set_xlim(0, len(rPPG_data))
+        ax.set_ylim(min(rPPG_data) - 0.1, max(rPPG_data) + 0.1)
+        plt.pause(0.001)  # Update the plot
+
     current_time = time.time()
     if current_time >= bpm_estimation_start:
         if (current_time - start_time) >= 2.0:
             start_time = current_time  # Reset timer
 
-            # Process the mean RGB signal for rPPG
-            l = int(fps * 1.6)
-            if mean_rgb.shape[0] > l:
-                # Apply POS algorithm
-                rPPG_signals = POS(mean_rgb, l)
-
-                # Apply bandpass filter
-                rPPG_filtered = bandpass_filter(rPPG_signals, fps)
-
-                # Standardization
-                rPPG_filtered = standardization_signal(rPPG_filtered)
-
                 # estimate BPM using frequncy analysis 
-                rPPG_bpm = BPM_estimation(rPPG_filtered, n_segment, fps)
-                print(f"BPM: {rPPG_bpm:.2f}")
-                bpm_display = f"BPM: {rPPG_bpm:.2f}"  # Update the BPM display text
+            rPPG_bpm = BPM_estimation(rPPG_filtered, n_segment, fps)
+            print(f"BPM: {rPPG_bpm:.2f}")
+            bpm_display = f"BPM: {rPPG_bpm:.2f}"  # Update the BPM display text
 
     cv2.putText(resized_frame, bpm_display, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
     cv2.imshow('Webcam Feed', resized_frame)
+    cv2.moveWindow('Webcam Feed', 1200, 100)  # Position the webcam window at (100, 100)
+
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
