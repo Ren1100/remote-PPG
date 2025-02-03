@@ -29,6 +29,13 @@ start_time = time.time()
 bpm_estimation_start = start_time + delay  # Set the initial BPM estimation time
 # Frame count
 mean_rgb = np.empty((0, 3))  # Initialize mean_rgb array
+
+# Create a named window
+cv2.namedWindow('Webcam Feed', cv2.WINDOW_NORMAL)
+
+# Move window to the center
+cv2.moveWindow('Webcam Feed', 500, 100)
+
 while True:
     ret, frame = cap.read()
     
@@ -90,22 +97,26 @@ while True:
     # Increment frame counters
     # break
     f_cnt += 1
+    
+    l = int(fps * 1.6)
+    if mean_rgb.shape[0] > l:
+        # Apply POS algorithm
+        rPPG_signals = POS(mean_rgb, l)
+        # Apply bandpass filter
+        rPPG_filtered = bandpass_filter(rPPG_signals, fps)
+        # Standardization
+        rPPG_filtered = standardization_signal(rPPG_filtered)
     current_time = time.time()
     if current_time >= bpm_estimation_start:
         if (current_time - start_time) >= 2.0:
             start_time = current_time  # Reset timer
             # Process the mean RGB signal for rPPG
-            l = int(fps * 1.6)
-            if mean_rgb.shape[0] > l:
-                # Apply POS algorithm
-                rPPG_signals = POS(mean_rgb, l)
-                # Apply bandpass filter
-                rPPG_filtered = bandpass_filter(rPPG_signals, fps)
-                # Standardization
-                rPPG_filtered = standardization_signal(rPPG_filtered)
                 # estimate BPM using frequncy analysis 
-                rPPG_bpm = BPM_estimation(rPPG_filtered, n_segment, fps)
-                print(f"BPM: {rPPG_bpm:.2f}")
-                bpm_display = f"BPM: {rPPG_bpm:.2f}"  # Update the BPM display text
+            rPPG_bpm = BPM_estimation(rPPG_filtered, n_segment, fps)
+            print(f"BPM: {rPPG_bpm:.2f}")
+            bpm_display = f"BPM: {rPPG_bpm:.2f}"  # Update the BPM display text
     cv2.putText(resized_frame, bpm_display, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
     cv2.imshow('Webcam Feed', resized_frame)
+
+    if cv2.waitKey(1) & 0xFF == ord('q'):  
+        break  # Press 'q' to exit the loop
