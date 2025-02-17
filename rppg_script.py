@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import dlib
 import time
+import csv
 from scipy import signal
 from scipy.signal import welch
 from signal_processing import *
@@ -16,8 +17,20 @@ cap = cv2.VideoCapture(0)
 # cv2.imshow('Webcam Feed', frame)
 fps = 30
 n_segment = 2
+frame_width, frame_height = int(cap.get(3)), int(cap.get(4))
+
 left_expand_ratio = 0.25
 top_expand_ratio = 0.25
+
+fourcc = cv2.VideoWriter_fourcc(*'XVID')
+video_writer = cv2.VideoWriter('output.avi', fourcc, fps, (frame_width, frame_height))
+
+# Output CSV File
+csv_filename = "rPPG_data.csv"
+csv_file = open(csv_filename, mode='w', newline='')
+csv_writer = csv.writer(csv_file)
+csv_writer.writerow(["Timestamp", "rPPG_filtered", "BPM"])  # CSV Header
+
 f_cnt = 0
 face_left, face_top, face_right, face_bottom = 0, 0, 0, 0
 mask = None
@@ -106,6 +119,7 @@ while True:
         rPPG_filtered = bandpass_filter(rPPG_signals, fps)
         # Standardization
         rPPG_filtered = standardization_signal(rPPG_filtered)
+        csv_writer.writerow([current_time, rPPG_filtered[-1], bpm_display])
     current_time = time.time()
     if current_time >= bpm_estimation_start:
         if (current_time - start_time) >= 2.0:
@@ -116,7 +130,15 @@ while True:
             print(f"BPM: {rPPG_bpm:.2f}")
             bpm_display = f"BPM: {rPPG_bpm:.2f}"  # Update the BPM display text
     cv2.putText(resized_frame, bpm_display, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+
+    video_writer.write(frame)
+
     cv2.imshow('Webcam Feed', resized_frame)
 
     if cv2.waitKey(1) & 0xFF == ord('q'):  
         break  # Press 'q' to exit the loop
+
+cap.release()
+video_writer.release()
+csv_file.close()
+cv2.destroyAllWindows()
